@@ -194,11 +194,10 @@ if "generated_submission_num" not in st.session_state:
 
 col1, col2 = st.columns([1,1])
 with col1:
-    if st.button("Generate Badge"):
+    if st.button("Download Badge"):
         if not name:
             st.error("Enter your name before generating the badge.")
         else:
-            # pick profile bytes: uploaded wins; else default based on gender; Other must upload
             profile_bytes_local = None
             if profile_image:
                 try:
@@ -246,11 +245,26 @@ with col1:
                 st.session_state["composed_filename"] = composed_filename
                 st.session_state["generated_submission_num"] = str(temp_num).zfill(3)
 
-                st.success("Badge generated. Download it, post it to your WhatsApp status, then upload the screenshot below.")
+                # Show preview
                 st.image(io.BytesIO(composed_bytes), caption="Generated Badge Preview")
-                st.download_button("Download Badge (PNG)", data=composed_bytes, file_name=composed_filename, mime="image/png")
+
+                # Force auto-download via base64 + JS
+                b64 = base64.b64encode(composed_bytes).decode()
+                href = f"""
+                <html>
+                <body>
+                <a id="dl" download="{composed_filename}" href="data:file/png;base64,{b64}"></a>
+                <script>
+                    document.getElementById('dl').click();
+                </script>
+                </body>
+                </html>
+                """
+                st.components.v1.html(href, height=0)
+
             except Exception as e:
                 st.error(f"Failed to generate badge: {e}")
+
 
 with col2:
     st.write("")  # spacer
