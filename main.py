@@ -55,7 +55,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, submissio
 
     draw = ImageDraw.Draw(background)
     try:
-        font = ImageFont.truetype("arial.ttf", 44)
+        font = ImageFont.truetype("arial.ttf", 65)
         font_small = ImageFont.truetype("arial.ttf", 36)
     except Exception:
         font = ImageFont.load_default()
