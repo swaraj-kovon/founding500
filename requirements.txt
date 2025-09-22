@@ -1,5 +1,6 @@
-supabse
+supabase
 pillow
 python-dotenv
 pip>=25.2
 streamlit
+
