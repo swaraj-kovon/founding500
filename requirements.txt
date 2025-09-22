@@ -1,0 +1,4 @@
+supabse
+pillow
+python-dotenv
+streamlit
