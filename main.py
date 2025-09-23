@@ -37,6 +37,7 @@ def get_submission_count():
 def process_and_compose(template_path, profile_image_bytes, name_text, badge_number):
     background = Image.open(template_path).convert("RGBA")
     bg_w, bg_h = background.size
+
     new_size = (520, 520)
     profile_pic = Image.open(profile_image_bytes).convert("RGBA").resize(new_size)
     mask = Image.new("L", new_size, 0)
@@ -46,9 +47,9 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
     draw = ImageDraw.Draw(background)
     try:
-        base_font_size = 80
+        base_font_size = 120  # increased for mobile readability
         font = ImageFont.truetype("arial.ttf", base_font_size)
-        font_small = ImageFont.truetype("arial.ttf", 48)
+        font_small = ImageFont.truetype("arial.ttf", 64)  # bigger badge number
     except:
         font = ImageFont.load_default()
         font_small = ImageFont.load_default()
@@ -56,8 +57,10 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     max_width = 560
     bbox = draw.textbbox((0,0), name_text, font=font)
     text_w = bbox[2]-bbox[0]
+
+    # dynamically shrink font only if name is too long
     if text_w > max_width:
-        font_size = int(base_font_size * max_width / text_w)
+        font_size = max(int(base_font_size * max_width / text_w), 60)  # min font 60
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
         except:
@@ -66,13 +69,13 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
         text_w = bbox[2]-bbox[0]
     text_h = bbox[3]-bbox[1]
 
-    rect_x, rect_y, rect_w, rect_h = 270, 1255, 560, 62
+    rect_x, rect_y, rect_w, rect_h = 270, 1255, 560, 80  # slightly taller rect
     name_x = rect_x + (rect_w - text_w)//2
     name_y = rect_y + (rect_h - text_h)//2
 
-    shadow_color = (0,0,0,200)
+    shadow_color = (0,0,0,220)
     text_color = (255, 230, 128, 255)
-    for off in [(-2,0),(2,0),(0,-2),(0,2)]:
+    for off in [(-3,0),(3,0),(0,-3),(0,3)]:  # bigger shadow for visibility
         draw.text((name_x+off[0], name_y+off[1]), name_text, font=font, fill=shadow_color)
     draw.text((name_x, name_y), name_text, font=font, fill=text_color)
 
@@ -81,7 +84,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     sub_w, sub_h = sub_bbox[2]-sub_bbox[0], sub_bbox[3]-sub_bbox[1]
     sub_x = bg_w - sub_w - 60
     sub_y = 68
-    for off in [(-1,0),(1,0),(0,-1),(0,1)]:
+    for off in [(-2,0),(2,0),(0,-2),(0,2)]:
         draw.text((sub_x+off[0], sub_y+off[1]), sub_text, font=font_small, fill=shadow_color)
     draw.text((sub_x, sub_y), sub_text, font=font_small, fill=text_color)
 
