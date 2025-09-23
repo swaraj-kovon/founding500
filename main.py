@@ -36,8 +36,8 @@ BADGE_FONT_SIZE_REF = 64
 # reference absolute positions (for the reference width above)
 NAME_X_REF = 360
 NAME_Y_REF = 2840
-BADGE_X_REF = 1900
-BADGE_Y_REF = 68
+BADGE_X_REF = 2200
+BADGE_Y_REF = 152
 # name bounding box width (how wide the name area is on the template)
 NAME_BOX_WIDTH_REF = 1750  # tune to the width of the rounded rect where name appears
 NAME_BOX_HEIGHT_REF = 200
@@ -171,7 +171,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     name_box_h = int(round(NAME_BOX_HEIGHT_REF * scale))
 
     # profile image
-    base_profile_size = 520
+    base_profile_size = 1300
     new_dim = max(24, int(round(base_profile_size * scale)))
     new_size = (new_dim, new_dim)
     profile_pic = Image.open(profile_image_bytes).convert("RGBA").resize(new_size)
@@ -181,7 +181,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     profile_pic.putalpha(mask)
 
     # place profile at the relative Y (scaled 600 from ref)
-    profile_y = int(round(600 * scale))
+    profile_y = int(round((600 + 770) * scale))
     background.paste(profile_pic, (bg_w // 2 - new_size[0] // 2, profile_y), profile_pic)
 
     draw = ImageDraw.Draw(background)
