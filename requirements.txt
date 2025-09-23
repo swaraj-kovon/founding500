@@ -3,4 +3,4 @@ pillow
 python-dotenv
 pip>=25.2
 streamlit
-
+streamlit_modal
