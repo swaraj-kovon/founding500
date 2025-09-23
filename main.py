@@ -47,7 +47,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
     draw = ImageDraw.Draw(background)
     try:
-        base_font_size = 1000 # increased for mobile readability
+        base_font_size = 80 # increased for mobile readability
         font = ImageFont.truetype("arial.ttf", base_font_size)
         font_small = ImageFont.truetype("arial.ttf", 30)  # bigger badge number
     except:
@@ -69,7 +69,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
         text_w = bbox[2]-bbox[0]
     text_h = bbox[3]-bbox[1]
 
-    rect_x, rect_y, rect_w, rect_h = 270, 1220, 560, 80  # slightly taller rect
+    rect_x, rect_y, rect_w, rect_h = 270, 1235, 560, 80  # slightly taller rect
     name_x = rect_x + (rect_w - text_w)//2
     name_y = rect_y + (rect_h - text_h)//2
 
@@ -213,5 +213,3 @@ if st.session_state.get("composed_bytes"):
             st.session_state["composed_bytes"] = None
             st.session_state["badge_number"] = None
             st.info("You can refresh the page or start a new submission now.")
-
-
