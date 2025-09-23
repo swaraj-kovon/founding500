@@ -34,8 +34,8 @@ NAME_FONT_SIZE_REF = 120
 BADGE_FONT_SIZE_REF = 64
 
 # reference absolute positions (for the reference width above)
-NAME_X_REF = 270
-NAME_Y_REF = 1255
+NAME_X_REF = 360
+NAME_Y_REF = 2840
 BADGE_X_REF = 1900
 BADGE_Y_REF = 68
 # name bounding box width (how wide the name area is on the template)
