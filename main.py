@@ -23,6 +23,19 @@ TABLE_NAME = "forms"
 MAX_SEATS = 500
 FIRST_BADGE_NUMBER = 190
 
+# ======= CONFIG: EASY POSITIONING =======
+NAME_FONT_SIZE = 120
+BADGE_FONT_SIZE = 64
+
+# name position (absolute)
+NAME_X = 270
+NAME_Y = 1255
+
+# badge number position (absolute)
+BADGE_X = 1900
+BADGE_Y = 68
+# =======================================
+
 def get_submission_count():
     try:
         res = supabase.table(TABLE_NAME).select("id", count="exact").execute()
@@ -38,6 +51,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     background = Image.open(template_path).convert("RGBA")
     bg_w, bg_h = background.size
 
+    # profile image
     new_size = (520, 520)
     profile_pic = Image.open(profile_image_bytes).convert("RGBA").resize(new_size)
     mask = Image.new("L", new_size, 0)
@@ -46,47 +60,26 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     background.paste(profile_pic, (bg_w//2 - new_size[0]//2, 600), profile_pic)
 
     draw = ImageDraw.Draw(background)
+
     try:
-        base_font_size = 80 # increased for mobile readability
-        font = ImageFont.truetype("arial.ttf", base_font_size)
-        font_small = ImageFont.truetype("arial.ttf", 30)  # bigger badge number
+        font = ImageFont.truetype("arial.ttf", NAME_FONT_SIZE)
+        font_small = ImageFont.truetype("arial.ttf", BADGE_FONT_SIZE)
     except:
         font = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    max_width = 560
-    bbox = draw.textbbox((0,0), name_text, font=font)
-    text_w = bbox[2]-bbox[0]
-
-    # dynamically shrink font only if name is too long
-    if text_w > max_width:
-        font_size = max(int(base_font_size * max_width / text_w), 60)  # min font 60
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        bbox = draw.textbbox((0,0), name_text, font=font)
-        text_w = bbox[2]-bbox[0]
-    text_h = bbox[3]-bbox[1]
-
-    rect_x, rect_y, rect_w, rect_h = 270, 1235, 560, 80  # slightly taller rect
-    name_x = rect_x + (rect_w - text_w)//2
-    name_y = rect_y + (rect_h - text_h)//2
-
+    # draw name with shadow
     shadow_color = (0,0,0,220)
     text_color = (255, 230, 128, 255)
-    for off in [(-3,0),(3,0),(0,-3),(0,3)]:  # bigger shadow for visibility
-        draw.text((name_x+off[0], name_y+off[1]), name_text, font=font, fill=shadow_color)
-    draw.text((name_x, name_y), name_text, font=font, fill=text_color)
+    for off in [(-3,0),(3,0),(0,-3),(0,3)]:
+        draw.text((NAME_X+off[0], NAME_Y+off[1]), name_text, font=font, fill=shadow_color)
+    draw.text((NAME_X, NAME_Y), name_text, font=font, fill=text_color)
 
+    # draw badge number with shadow
     sub_text = str(badge_number).zfill(3)
-    sub_bbox = draw.textbbox((0,0), sub_text, font=font_small)
-    sub_w, sub_h = sub_bbox[2]-sub_bbox[0], sub_bbox[3]-sub_bbox[1]
-    sub_x = bg_w - sub_w - 70
-    sub_y = 70
     for off in [(-2,0),(2,0),(0,-2),(0,2)]:
-        draw.text((sub_x+off[0], sub_y+off[1]), sub_text, font=font_small, fill=shadow_color)
-    draw.text((sub_x, sub_y), sub_text, font=font_small, fill=text_color)
+        draw.text((BADGE_X+off[0], BADGE_Y+off[1]), sub_text, font=font_small, fill=shadow_color)
+    draw.text((BADGE_X, BADGE_Y), sub_text, font=font_small, fill=text_color)
 
     out = io.BytesIO()
     background.save(out, format="PNG")
@@ -169,7 +162,8 @@ if st.button("Download Badge", key="download_badge_btn"):
         st.session_state["composed_bytes"] = composed_bytes
         st.session_state["badge_number"] = badge_number
 
-        st.image(io.BytesIO(composed_bytes), caption=f"Generated Badge Preview (#{badge_number})", use_container_width=True)
+        st.image(io.BytesIO(composed_bytes), caption=f"Generated Badge Preview (#{badge_number})")
+
         profile_path = f"{badge_number}/profile_{uuid.uuid4().hex}.png"
         profile_url = upload_to_storage(STORAGE_BUCKET, profile_bytes_local, profile_path)
         st.session_state["profile_url"] = profile_url
