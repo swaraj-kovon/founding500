@@ -236,7 +236,8 @@ st.markdown("""<div style='border:1px solid #eee; padding:12px; border-radius:10
 - Early access to overseas job updates<br>
 - Priority guidance (training, visa, recruiters)<br>
 - Your name featured on the Kovon Platform<br>
-- Win exclusive Kovon merchandise!<br>
+- Win exclusive Kovon merchandise!
+            <br><br>
 ✅ How to Join (Limited seats only):<br>
 - Post your VVIP badge on your WhatsApp and other Social Media channels<br>
 - Bring in maximum number of friends/colleagues<br>
