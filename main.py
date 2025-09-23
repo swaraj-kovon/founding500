@@ -218,7 +218,7 @@ def upload_to_storage(bucket, file_bytes, dest_path):
         return None
 
 # === UI unchanged below ===
-logo_path = "logo.png"
+logo_path = "logo-1.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
         data = f.read()
