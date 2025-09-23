@@ -36,28 +36,42 @@ def get_submission_count():
 
 def process_and_compose(template_path, profile_image_bytes, name_text, badge_number):
     background = Image.open(template_path).convert("RGBA")
+    bg_w, bg_h = background.size
     new_size = (520, 520)
     profile_pic = Image.open(profile_image_bytes).convert("RGBA").resize(new_size)
     mask = Image.new("L", new_size, 0)
     ImageDraw.Draw(mask).ellipse((0,0,new_size[0],new_size[1]), fill=255)
     profile_pic.putalpha(mask)
-    background.paste(profile_pic, (275, 600), profile_pic)
+    background.paste(profile_pic, (bg_w//2 - new_size[0]//2, 600), profile_pic)
 
     draw = ImageDraw.Draw(background)
     try:
-        font = ImageFont.truetype("arial.ttf", 80)
+        base_font_size = 80
+        font = ImageFont.truetype("arial.ttf", base_font_size)
         font_small = ImageFont.truetype("arial.ttf", 48)
     except:
         font = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    rect_x, rect_y, rect_w, rect_h = 270, 1255, 560, 62
+    max_width = 560
     bbox = draw.textbbox((0,0), name_text, font=font)
-    w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-    name_x = rect_x + (rect_w - w)//2
-    name_y = rect_y + (rect_h - h)//2
-    shadow_color = (0,0,0,180)
-    text_color = (255,230,128,255)
+    text_w = bbox[2]-bbox[0]
+    if text_w > max_width:
+        font_size = int(base_font_size * max_width / text_w)
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except:
+            font = ImageFont.load_default()
+        bbox = draw.textbbox((0,0), name_text, font=font)
+        text_w = bbox[2]-bbox[0]
+    text_h = bbox[3]-bbox[1]
+
+    rect_x, rect_y, rect_w, rect_h = 270, 1255, 560, 62
+    name_x = rect_x + (rect_w - text_w)//2
+    name_y = rect_y + (rect_h - text_h)//2
+
+    shadow_color = (0,0,0,200)
+    text_color = (255, 230, 128, 255)
     for off in [(-2,0),(2,0),(0,-2),(0,2)]:
         draw.text((name_x+off[0], name_y+off[1]), name_text, font=font, fill=shadow_color)
     draw.text((name_x, name_y), name_text, font=font, fill=text_color)
@@ -65,7 +79,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     sub_text = str(badge_number).zfill(3)
     sub_bbox = draw.textbbox((0,0), sub_text, font=font_small)
     sub_w, sub_h = sub_bbox[2]-sub_bbox[0], sub_bbox[3]-sub_bbox[1]
-    sub_x = background.size[0] - sub_w - 60
+    sub_x = bg_w - sub_w - 60
     sub_y = 68
     for off in [(-1,0),(1,0),(0,-1),(0,1)]:
         draw.text((sub_x+off[0], sub_y+off[1]), sub_text, font=font_small, fill=shadow_color)
@@ -99,8 +113,7 @@ if os.path.exists(logo_path):
 
 st.markdown("<h1 style='text-align:center;'>Kovon VVIP Circle — Limited Seats Only</h1>", unsafe_allow_html=True)
 
-st.markdown("""
-<div style='border:1px solid #eee; padding:12px; border-radius:10px;'>
+st.markdown("""<div style='border:1px solid #eee; padding:12px; border-radius:10px;'>
 ✨ Benefits:<br>
 - Early access to overseas job updates<br>
 - Priority guidance (training, visa, recruiters)<br>
@@ -110,8 +123,7 @@ st.markdown("""
 - Post your VVIP badge on your WhatsApp and other Social Media channels<br>
 - Bring in maximum number of friends/colleagues<br>
 - Fill this form →
-</div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
 name = st.text_input("Name", key="name_input")
 profile_image = st.file_uploader("Upload profile image", type=["png","jpg","jpeg"], key="profile_upload")
