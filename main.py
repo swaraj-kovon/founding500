@@ -37,7 +37,7 @@ BADGE_FONT_SIZE_REF = 64
 NAME_X_REF = 360
 NAME_Y_REF = 2840
 BADGE_X_REF = 2200
-BADGE_Y_REF = 152
+BADGE_Y_REF = 155
 # name bounding box width (how wide the name area is on the template)
 NAME_BOX_WIDTH_REF = 1750  # tune to the width of the rounded rect where name appears
 NAME_BOX_HEIGHT_REF = 200
