@@ -4,7 +4,7 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import uuid
 from datetime import datetime, timezone
@@ -39,7 +39,7 @@ NAME_Y_REF = 2840
 BADGE_X_REF = 2200
 BADGE_Y_REF = 162
 # name bounding box width (how wide the name area is on the template)
-NAME_BOX_WIDTH_REF = 1750  # tune to the width of the rounded rect where name appears
+NAME_BOX_WIDTH_REF = 1750
 NAME_BOX_HEIGHT_REF = 200
 
 # Fonts directory (optional) - you can place a .ttf here; otherwise the script will try system fonts / download.
@@ -55,7 +55,6 @@ FONT_CANDIDATES = [
 ]
 
 def try_download_poppins(dest_path):
-    """Best-effort: download Poppins TTF from Google Fonts Github raw. Returns True if saved."""
     try:
         url_map = {
             "Poppins-Regular.ttf": "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf",
@@ -74,20 +73,16 @@ def try_download_poppins(dest_path):
     return False
 
 def find_usable_ttf():
-    """Return path to a usable TTF or None. Try candidates, then try download to fonts/."""
     for p in FONT_CANDIDATES:
         if os.path.exists(p):
             return p
-    # try common names with PIL's default locations by name-only
     try_names = ["DejaVuSans-Bold.ttf", "DejaVuSans.ttf", "Poppins-Bold.ttf", "Poppins-Regular.ttf"]
     for name in try_names:
         try:
-            # attempt to load by name via truetype; if it raises, skip
             ImageFont.truetype(name, 20)
             return name
         except Exception:
             continue
-    # try to download Poppins into fonts dir
     dest = os.path.join(FONTS_DIR, "Poppins-Regular.ttf")
     if try_download_poppins(dest):
         return dest
@@ -97,42 +92,27 @@ def find_usable_ttf():
     return None
 
 def load_truetype_or_default(size):
-    """
-    Try to load a TTF that respects pixel size. If none found, fall back to ImageFont.load_default()
-    (which does not respect size). Returns font object and a flag whether it's a scalable truetype.
-    """
     path = find_usable_ttf()
     if path:
         try:
             return ImageFont.truetype(path, size), True
         except Exception:
             pass
-    # Last resort
     return ImageFont.load_default(), False
 
 def fit_text_to_box(draw, text, max_width, max_height, max_start_size):
-    """
-    Find the largest font size (<= max_start_size) such that text fits in (max_width, max_height).
-    Returns a ImageFont object and resulting size. Uses truetype if available; otherwise returns default.
-    """
-    # start from max_start_size and step down
-    # Try to load scalable font at candidate sizes; if not available, fallback to load_default immediately.
-    # We'll attempt to use load_truetype_or_default with candidate size.
     for trial in range(max_start_size, 5, -1):
         font, is_truetype = load_truetype_or_default(trial)
         if not font:
             continue
-        # measure
         try:
             bbox = draw.textbbox((0,0), text, font=font)
             w = bbox[2] - bbox[0]
             h = bbox[3] - bbox[1]
         except Exception:
-            # fallback older API
             w, h = draw.textsize(text, font=font)
         if w <= max_width and h <= max_height:
             return font, trial, is_truetype
-    # final fallback: smallest default
     font, is_tt = load_truetype_or_default(12)
     return font, 12, is_tt
 
@@ -148,57 +128,53 @@ def get_submission_count():
         return 0
 
 def process_and_compose(template_path, profile_image_bytes, name_text, badge_number):
-    """
-    Produces an in-memory PNG BytesIO of the badge using:
-    - scale-aware positions
-    - auto-fit text within a bounding box
-    - reliable truetype usage when available
-    """
     background = Image.open(template_path).convert("RGBA")
     bg_w, bg_h = background.size
 
-    # compute scale ratio relative to reference width
     scale = bg_w / TEMPLATE_REF_WIDTH if TEMPLATE_REF_WIDTH > 0 else 1.0
 
-    # scaled positions and sizes
     name_x = int(round(NAME_X_REF * scale))
     name_y = int(round(NAME_Y_REF * scale))
     badge_x = int(round(BADGE_X_REF * scale))
     badge_y = int(round(BADGE_Y_REF * scale))
 
-    # bounding box for name rendering
     name_box_w = int(round(NAME_BOX_WIDTH_REF * scale))
     name_box_h = int(round(NAME_BOX_HEIGHT_REF * scale))
 
-    # profile image
+    # === PROFILE IMAGE FIX (rotation + stretching) ===
     base_profile_size = 1300
     new_dim = max(24, int(round(base_profile_size * scale)))
-    new_size = (new_dim, new_dim)
-    profile_pic = Image.open(profile_image_bytes).convert("RGBA").resize(new_size)
 
-    mask = Image.new("L", new_size, 0)
-    ImageDraw.Draw(mask).ellipse((0, 0, new_size[0], new_size[1]), fill=255)
-    profile_pic.putalpha(mask)
+    profile_pic = Image.open(profile_image_bytes)
+    profile_pic = ImageOps.exif_transpose(profile_pic).convert("RGBA")
 
-    # place profile at the relative Y (scaled 600 from ref)
+    profile_pic.thumbnail((new_dim, new_dim), Image.Resampling.LANCZOS)
+
+    canvas = Image.new("RGBA", (new_dim, new_dim), (0, 0, 0, 0))
+    offset_x = (new_dim - profile_pic.width) // 2
+    offset_y = (new_dim - profile_pic.height) // 2
+    canvas.paste(profile_pic, (offset_x, offset_y))
+
+    mask = Image.new("L", (new_dim, new_dim), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, new_dim, new_dim), fill=255)
+    canvas.putalpha(mask)
+
     profile_y = int(round((600 + 770) * scale))
-    background.paste(profile_pic, (bg_w // 2 - new_size[0] // 2, profile_y), profile_pic)
+    profile_x = bg_w // 2 - new_dim // 2
+    background.paste(canvas, (profile_x, profile_y), canvas)
+    # === END PROFILE FIX ===
 
     draw = ImageDraw.Draw(background)
 
-    # Determine font for name that fits the box
     max_name_font_size = max(8, int(round(NAME_FONT_SIZE_REF * scale)))
-    # Attempt to fit the name into the name box width/height
     font_for_name, used_size, is_truetype = fit_text_to_box(draw, name_text, name_box_w, name_box_h, max_name_font_size)
 
-    # Create shadow offsets scaled
     shadow_offsets = [(-3, 0), (3, 0), (0, -3), (0, 3)]
     shadow_offsets = [(int(round(x * scale)), int(round(y * scale))) for (x, y) in shadow_offsets]
 
     shadow_color = (0, 0, 0, 220)
     text_color = (255, 230, 128, 255)
 
-    # Center the name within the name box horizontally (so NAME_X_REF is treated as left edge of box)
     try:
         bbox = draw.textbbox((0, 0), name_text, font=font_for_name)
         text_w = bbox[2] - bbox[0]
@@ -206,16 +182,13 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
     except Exception:
         text_w, text_h = draw.textsize(name_text, font=font_for_name)
 
-    # Calculate left coordinate so text is centered within the reserved box (name_x is left of box)
     name_left = name_x + max(0, (name_box_w - text_w) // 2)
     name_top = name_y + max(0, (name_box_h - text_h) // 2)
 
-    # Draw shadow then text
     for off in shadow_offsets:
         draw.text((name_left + off[0], name_top + off[1]), name_text, font=font_for_name, fill=shadow_color)
     draw.text((name_left, name_top), name_text, font=font_for_name, fill=text_color)
 
-    # Badge number - we'll use a simpler logic: scaled badge font size
     badge_font_size = max(6, int(round(BADGE_FONT_SIZE_REF * scale)))
     badge_font, _ = load_truetype_or_default(badge_font_size)
     sub_text = str(badge_number).zfill(3)
@@ -225,7 +198,6 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
         draw.text((badge_x + off[0], badge_y + off[1]), sub_text, font=badge_font, fill=shadow_color)
     draw.text((badge_x, badge_y), sub_text, font=badge_font, fill=text_color)
 
-    # Save to bytes
     out = io.BytesIO()
     background.save(out, format="PNG", dpi=(300, 300))
     out.seek(0)
@@ -245,7 +217,7 @@ def upload_to_storage(bucket, file_bytes, dest_path):
         st.text(traceback.format_exc())
         return None
 
-# UI and rest of your app (unchanged)
+# === UI unchanged below ===
 logo_path = "logo.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
@@ -303,7 +275,7 @@ if st.button("Download Badge", key="download_badge_btn"):
             if not default_file or not os.path.exists(default_file):
                 st.error("Upload a profile image or ensure default exists.")
                 st.stop()
-            profile_bytes_local = open(default_file, "rb").read()
+            profile_bytes_local = open(default_file,"rb").read()
 
         badge_number = current_count + FIRST_BADGE_NUMBER
         composed_io = process_and_compose("new.jpg", io.BytesIO(profile_bytes_local), name, badge_number)
@@ -340,7 +312,7 @@ if st.session_state.get("composed_bytes"):
             submission_record = {
                 "name": name,
                 "city": city,
-                "job": other_job if job == "Others" else job,
+                "job": other_job if job=="Others" else job,
                 "country_target": country_target,
                 "about_you": about_you,
                 "gender": gender,
@@ -355,5 +327,3 @@ if st.session_state.get("composed_bytes"):
             st.session_state["composed_bytes"] = None
             st.session_state["badge_number"] = None
             st.info("You can refresh the page or start a new submission now.")
-
-
