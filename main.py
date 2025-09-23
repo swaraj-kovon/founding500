@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from supabase import create_client
 import base64
 
-st.set_page_config(page_title="User Info Form", page_icon=":memo:", layout="centered")
+st.set_page_config(page_title="Kovon VVIP Circle — Limited Seats Only", page_icon=":star:", layout="centered")
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -45,8 +45,8 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
     draw = ImageDraw.Draw(background)
     try:
-        font = ImageFont.truetype("arial.ttf", 65)
-        font_small = ImageFont.truetype("arial.ttf", 36)
+        font = ImageFont.truetype("arial.ttf", 80)
+        font_small = ImageFont.truetype("arial.ttf", 48)
     except:
         font = ImageFont.load_default()
         font_small = ImageFont.load_default()
@@ -78,11 +78,11 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
 def upload_to_storage(bucket, file_bytes, dest_path):
     try:
-        supabase.storage.from_(bucket).upload(dest_path, file_bytes)
-        public_url = supabase.storage.from_(bucket).get_public_url(dest_path).get("publicURL")
+        supabase.storage.from_(bucket).upload(dest_path, file_bytes, {"cacheControl": "3600"})
+        public_url = supabase.storage.from_(bucket).get_public_url(dest_path)
         return public_url
     except Exception as e:
-        print("Upload failed:", e)
+        st.error(f"Upload failed: {e}")
         return None
 
 # Logo
@@ -93,11 +93,26 @@ if os.path.exists(logo_path):
     b64 = base64.b64encode(data).decode()
     st.markdown(f"""
         <div style="display:flex; justify-content:center; margin-bottom:12px;">
-            <img src="data:image/png;base64,{b64}" width="150">
+            <img src="data:image/png;base64,{b64}" width="180">
         </div>
         """, unsafe_allow_html=True)
 
-st.title("User Info Form")
+st.markdown("<h1 style='text-align:center;'>Kovon VVIP Circle — Limited Seats Only</h1>", unsafe_allow_html=True)
+
+st.markdown("""
+<div style='border:1px solid #eee; padding:12px; border-radius:10px;'>
+✨ Benefits:<br>
+- Early access to overseas job updates<br>
+- Priority guidance (training, visa, recruiters)<br>
+- Your name featured on the Kovon Platform<br>
+- Win exclusive Kovon merchandise!<br>
+✅ How to Join (Limited seats only):<br>
+- Post your VVIP badge on your WhatsApp and other Social Media channels<br>
+- Bring in maximum number of friends/colleagues<br>
+- Fill this form →
+</div>
+""", unsafe_allow_html=True)
+
 name = st.text_input("Name", key="name_input")
 profile_image = st.file_uploader("Upload profile image", type=["png","jpg","jpeg"], key="profile_upload")
 city = st.text_input("City", key="city_input")
@@ -108,8 +123,9 @@ about_you = st.text_area("About you (15-20 words)", key="about_input")
 gender = st.selectbox("Gender", ["Male","Female","Other"], key="gender_select")
 
 current_count = get_submission_count()
-if current_count < MAX_SEATS:
-    st.info(f"Seats left: {MAX_SEATS - current_count}")
+seats_left = MAX_SEATS - (current_count + FIRST_BADGE_NUMBER - 1)
+if seats_left > 0:
+    st.info(f"Seats left: {seats_left}")
 else:
     st.info("Accepting more users due to high volume")
 
@@ -117,8 +133,6 @@ if "composed_bytes" not in st.session_state:
     st.session_state["composed_bytes"] = None
 if "badge_number" not in st.session_state:
     st.session_state["badge_number"] = None
-if "profile_bytes_local" not in st.session_state:
-    st.session_state["profile_bytes_local"] = None
 
 # Step 1: Generate & download badge
 if st.button("Download Badge", key="download_badge_btn"):
@@ -126,21 +140,25 @@ if st.button("Download Badge", key="download_badge_btn"):
         st.error("Enter your name before generating badge.")
     else:
         if profile_image:
-            st.session_state["profile_bytes_local"] = profile_image.read()
+            profile_bytes_local = profile_image.read()
         else:
             default_file = "man.jpg" if gender=="Male" else "women.jpg" if gender=="Female" else None
             if not default_file or not os.path.exists(default_file):
                 st.error("Upload a profile image or ensure default exists.")
                 st.stop()
-            st.session_state["profile_bytes_local"] = open(default_file,"rb").read()
+            profile_bytes_local = open(default_file,"rb").read()
 
         badge_number = current_count + FIRST_BADGE_NUMBER
-        composed_io = process_and_compose("new.jpg", io.BytesIO(st.session_state["profile_bytes_local"]), name, badge_number)
+        composed_io = process_and_compose("new.jpg", io.BytesIO(profile_bytes_local), name, badge_number)
         composed_bytes = composed_io.getvalue()
         st.session_state["composed_bytes"] = composed_bytes
         st.session_state["badge_number"] = badge_number
 
-        st.image(io.BytesIO(composed_bytes), caption=f"Generated Badge Preview (#{badge_number})")
+        st.image(io.BytesIO(composed_bytes), caption=f"Generated Badge Preview (#{badge_number})", use_container_width=True)
+        profile_path = f"{badge_number}/profile_{uuid.uuid4().hex}.png"
+        profile_url = upload_to_storage(STORAGE_BUCKET, profile_bytes_local, profile_path)
+        st.session_state["profile_url"] = profile_url
+
         b64 = base64.b64encode(composed_bytes).decode()
         href = f"""
         <html>
@@ -159,11 +177,6 @@ if st.session_state.get("composed_bytes"):
     if screenshot:
         if st.button("Submit Submission", key="submit_submission_btn"):
             screenshot_bytes = screenshot.read()
-
-            # Upload profile and screenshot to storage
-            profile_path = f"{st.session_state['badge_number']}/profile_{uuid.uuid4().hex}.png"
-            profile_url = upload_to_storage(STORAGE_BUCKET, st.session_state["profile_bytes_local"], profile_path)
-
             screenshot_path = f"{st.session_state['badge_number']}/screenshot_{uuid.uuid4().hex}.png"
             screenshot_url = upload_to_storage(STORAGE_BUCKET, screenshot_bytes, screenshot_path)
 
@@ -175,16 +188,13 @@ if st.session_state.get("composed_bytes"):
                 "about_you": about_you,
                 "gender": gender,
                 "submission": str(st.session_state["badge_number"]).zfill(3),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "profile_image_url": profile_url,
-                "profile_image_filename": os.path.basename(profile_path),
+                "profile_image_url": st.session_state.get("profile_url"),
                 "screenshot_url": screenshot_url,
-                "screenshot_filename": os.path.basename(screenshot_path)
+                "created_at": datetime.now(timezone.utc).isoformat()
             }
 
             supabase.table(TABLE_NAME).insert(submission_record).execute()
             st.success(f"Submission recorded! Badge #{st.session_state['badge_number']}")
             st.session_state["composed_bytes"] = None
             st.session_state["badge_number"] = None
-            st.session_state["profile_bytes_local"] = None
             st.info("You can refresh the page or start a new submission now.")
