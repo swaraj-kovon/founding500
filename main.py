@@ -47,7 +47,7 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
     draw = ImageDraw.Draw(background)
     try:
-        base_font_size = 80# increased for mobile readability
+        base_font_size = 100 # increased for mobile readability
         font = ImageFont.truetype("arial.ttf", base_font_size)
         font_small = ImageFont.truetype("arial.ttf", 30)  # bigger badge number
     except:
