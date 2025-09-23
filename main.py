@@ -12,6 +12,7 @@ from supabase import create_client
 import base64
 import requests
 import traceback
+from streamlit.components.v1 import html as st_html
 
 st.set_page_config(page_title="Kovon VVIP Circle — Limited Seats Only", page_icon=":star:", layout="centered")
 load_dotenv()
@@ -256,7 +257,7 @@ gender = st.selectbox("Gender", ["Male","Female","Other"], key="gender_select")
 current_count = get_submission_count()
 seats_left = MAX_SEATS - (current_count + FIRST_BADGE_NUMBER - 1)
 if seats_left > 0:
-    st.info(f"Seats left: {seats_left}")
+    st.info(f"Memebers left: {seats_left}")
 else:
     st.info("Accepting more users due to high volume")
 
@@ -327,4 +328,6 @@ if st.session_state.get("composed_bytes"):
             st.success(f"Submission recorded! Badge #{st.session_state['badge_number']}")
             st.session_state["composed_bytes"] = None
             st.session_state["badge_number"] = None
-            st.info("You can refresh the page or start a new submission now.")
+
+            st_html("<script>alert('Welcome to the Kovon VVIP Circle! 🎉')</script>", height=0, width=0)
+            
