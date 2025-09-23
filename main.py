@@ -78,8 +78,11 @@ def process_and_compose(template_path, profile_image_bytes, name_text, badge_num
 
 def upload_to_storage(bucket, file_bytes, dest_path):
     try:
-        return supabase.storage.from_(bucket).upload(dest_path, file_bytes).get("publicURL")
-    except:
+        supabase.storage.from_(bucket).upload(dest_path, file_bytes)
+        public_url = supabase.storage.from_(bucket).get_public_url(dest_path).get("publicURL")
+        return public_url
+    except Exception as e:
+        print("Upload failed:", e)
         return None
 
 # Logo
@@ -114,6 +117,8 @@ if "composed_bytes" not in st.session_state:
     st.session_state["composed_bytes"] = None
 if "badge_number" not in st.session_state:
     st.session_state["badge_number"] = None
+if "profile_bytes_local" not in st.session_state:
+    st.session_state["profile_bytes_local"] = None
 
 # Step 1: Generate & download badge
 if st.button("Download Badge", key="download_badge_btn"):
@@ -121,16 +126,16 @@ if st.button("Download Badge", key="download_badge_btn"):
         st.error("Enter your name before generating badge.")
     else:
         if profile_image:
-            profile_bytes_local = profile_image.read()
+            st.session_state["profile_bytes_local"] = profile_image.read()
         else:
             default_file = "man.jpg" if gender=="Male" else "women.jpg" if gender=="Female" else None
             if not default_file or not os.path.exists(default_file):
                 st.error("Upload a profile image or ensure default exists.")
                 st.stop()
-            profile_bytes_local = open(default_file,"rb").read()
+            st.session_state["profile_bytes_local"] = open(default_file,"rb").read()
 
         badge_number = current_count + FIRST_BADGE_NUMBER
-        composed_io = process_and_compose("new.jpg", io.BytesIO(profile_bytes_local), name, badge_number)
+        composed_io = process_and_compose("new.jpg", io.BytesIO(st.session_state["profile_bytes_local"]), name, badge_number)
         composed_bytes = composed_io.getvalue()
         st.session_state["composed_bytes"] = composed_bytes
         st.session_state["badge_number"] = badge_number
@@ -154,6 +159,14 @@ if st.session_state.get("composed_bytes"):
     if screenshot:
         if st.button("Submit Submission", key="submit_submission_btn"):
             screenshot_bytes = screenshot.read()
+
+            # Upload profile and screenshot to storage
+            profile_path = f"{st.session_state['badge_number']}/profile_{uuid.uuid4().hex}.png"
+            profile_url = upload_to_storage(STORAGE_BUCKET, st.session_state["profile_bytes_local"], profile_path)
+
+            screenshot_path = f"{st.session_state['badge_number']}/screenshot_{uuid.uuid4().hex}.png"
+            screenshot_url = upload_to_storage(STORAGE_BUCKET, screenshot_bytes, screenshot_path)
+
             submission_record = {
                 "name": name,
                 "city": city,
@@ -162,14 +175,16 @@ if st.session_state.get("composed_bytes"):
                 "about_you": about_you,
                 "gender": gender,
                 "submission": str(st.session_state["badge_number"]).zfill(3),
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "profile_image_url": profile_url,
+                "profile_image_filename": os.path.basename(profile_path),
+                "screenshot_url": screenshot_url,
+                "screenshot_filename": os.path.basename(screenshot_path)
             }
-            # Upload screenshot
-            screenshot_path = f"{st.session_state['badge_number']}/screenshot_{uuid.uuid4().hex}.png"
-            upload_to_storage(STORAGE_BUCKET, screenshot_bytes, screenshot_path)
-            # Insert submission
+
             supabase.table(TABLE_NAME).insert(submission_record).execute()
             st.success(f"Submission recorded! Badge #{st.session_state['badge_number']}")
             st.session_state["composed_bytes"] = None
             st.session_state["badge_number"] = None
+            st.session_state["profile_bytes_local"] = None
             st.info("You can refresh the page or start a new submission now.")
